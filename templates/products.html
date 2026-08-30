@@ -1,0 +1,303 @@
+{% extends "base.html" %}
+
+{% block title %}Shop Fashion Apparel | Aura Store{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-lg-5 py-4">
+    <div class="d-flex align-items-center justify-content-between mb-4">
+        <div>
+            <h2 class="brand-font mb-1">Fashion Catalog</h2>
+            <p class="text-secondary small mb-0">Filter by category, size, color, brand, or price range</p>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <label class="text-secondary small me-2">Sort By:</label>
+            <select id="sortBy" class="form-select form-select-sm bg-card text-white border-secondary" style="width: 160px;" onchange="fetchProducts()">
+                <option value="newest">Newest Arrivals</option>
+                <option value="price_asc">Price: Low to High</option>
+                <option value="price_desc">Price: High to Low</option>
+                <option value="name">Name A-Z</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Sidebar Filters -->
+        <div class="col-lg-3">
+            <div class="card bg-card border-secondary p-3 rounded-4 mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom border-secondary">
+                    <h6 class="font-weight-bold text-white mb-0"><i class="bi bi-funnel text-pink me-2"></i>Filters</h6>
+                    <button class="btn btn-sm text-pink p-0" onclick="resetFilters()">Reset All</button>
+                </div>
+
+                <!-- Search -->
+                <div class="mb-3">
+                    <label class="form-label text-secondary small">Search</label>
+                    <div class="input-group input-group-sm">
+                        <input type="text" id="searchInput" class="form-control bg-dark text-white border-secondary" placeholder="Search jacket, shirt, dress..." onkeyup="if(event.key==='Enter') fetchProducts()">
+                        <button class="btn btn-outline-secondary" type="button" onclick="fetchProducts()"><i class="bi bi-search"></i></button>
+                    </div>
+                </div>
+
+                <!-- Gender -->
+                <div class="mb-3">
+                    <label class="form-label text-secondary small">Department</label>
+                    <select id="genderSelect" class="form-select form-select-sm bg-dark text-white border-secondary" onchange="fetchProducts()">
+                        <option value="all">All Departments</option>
+                        <option value="women">Women</option>
+                        <option value="men">Men</option>
+                        <option value="unisex">Unisex</option>
+                    </select>
+                </div>
+
+                <!-- Category -->
+                <div class="mb-3">
+                    <label class="form-label text-secondary small">Category</label>
+                    <select id="categorySelect" class="form-select form-select-sm bg-dark text-white border-secondary" onchange="fetchProducts()">
+                        <option value="">All Categories</option>
+                    </select>
+                </div>
+
+                <!-- Brand -->
+                <div class="mb-3">
+                    <label class="form-label text-secondary small">Brand</label>
+                    <select id="brandSelect" class="form-select form-select-sm bg-dark text-white border-secondary" onchange="fetchProducts()">
+                        <option value="">All Brands</option>
+                    </select>
+                </div>
+
+                <!-- Size -->
+                <div class="mb-3">
+                    <label class="form-label text-secondary small">Available Size</label>
+                    <div id="sizeFilterButtons" class="d-flex flex-wrap gap-1">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Color -->
+                <div class="mb-3">
+                    <label class="form-label text-secondary small">Color</label>
+                    <select id="colorSelect" class="form-select form-select-sm bg-dark text-white border-secondary" onchange="fetchProducts()">
+                        <option value="">All Colors</option>
+                    </select>
+                </div>
+
+                <!-- Max Price -->
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <label class="form-label text-secondary small mb-0">Max Price</label>
+                        <span id="priceValue" class="text-pink font-weight-bold">$300</span>
+                    </div>
+                    <input type="range" class="form-range" id="priceRange" min="10" max="300" step="5" value="300" oninput="document.getElementById('priceValue').innerText = '$' + this.value" onchange="fetchProducts()">
+                </div>
+            </div>
+        </div>
+
+        <!-- Product Grid -->
+        <div class="col-lg-9">
+            <div id="productGridLoading" class="text-center py-5">
+                <div class="spinner-border text-pink" role="status"></div>
+                <p class="text-secondary mt-2">Loading fashion items...</p>
+            </div>
+
+            <div id="productGrid" class="row g-4"></div>
+
+            <!-- Pagination -->
+            <nav id="paginationNav" class="mt-4 d-none">
+                <ul class="pagination justify-content-center" id="paginationList"></ul>
+            </nav>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+let activeSize = '';
+let currentPage = 1;
+
+document.addEventListener('DOMContentLoaded', async () => {
+    // Parse query params if any
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('gender')) document.getElementById('genderSelect').value = urlParams.get('gender');
+    if (urlParams.has('category_slug')) window.selectedCatSlug = urlParams.get('category_slug');
+
+    await loadFilterOptions();
+    await fetchProducts();
+});
+
+async function loadFilterOptions() {
+    try {
+        const res = await fetch('/api/v1/products/filters/options');
+        const data = await res.json();
+
+        // Populate Categories
+        const catSelect = document.getElementById('categorySelect');
+        data.categories.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.id;
+            opt.innerText = c.name;
+            if (window.selectedCatSlug && c.slug === window.selectedCatSlug) opt.selected = true;
+            catSelect.appendChild(opt);
+        });
+
+        // Populate Brands
+        const brandSelect = document.getElementById('brandSelect');
+        data.brands.forEach(b => {
+            const opt = document.createElement('option');
+            opt.value = b.id;
+            opt.innerText = b.name;
+            brandSelect.appendChild(opt);
+        });
+
+        // Populate Colors
+        const colorSelect = document.getElementById('colorSelect');
+        data.colors.forEach(col => {
+            const opt = document.createElement('option');
+            opt.value = col;
+            opt.innerText = col;
+            colorSelect.appendChild(opt);
+        });
+
+        // Populate Size buttons
+        const sizeContainer = document.getElementById('sizeFilterButtons');
+        data.sizes.forEach(sz => {
+            const btn = document.createElement('button');
+            btn.className = 'btn btn-sm btn-outline-secondary py-1 px-2';
+            btn.innerText = sz;
+            btn.onclick = () => {
+                if (activeSize === sz) {
+                    activeSize = '';
+                    btn.classList.remove('btn-pink', 'text-white');
+                    btn.classList.add('btn-outline-secondary');
+                } else {
+                    activeSize = sz;
+                    Array.from(sizeContainer.children).forEach(b => {
+                        b.classList.remove('btn-pink', 'text-white');
+                        b.classList.add('btn-outline-secondary');
+                    });
+                    btn.classList.remove('btn-outline-secondary');
+                    btn.classList.add('btn-pink', 'text-white');
+                }
+                fetchProducts();
+            };
+            sizeContainer.appendChild(btn);
+        });
+
+    } catch (err) {
+        console.error('Failed to load filter options:', err);
+    }
+}
+
+async function fetchProducts(page = 1) {
+    currentPage = page;
+    const grid = document.getElementById('productGrid');
+    const loading = document.getElementById('productGridLoading');
+    loading.classList.remove('d-none');
+    grid.innerHTML = '';
+
+    const search = document.getElementById('searchInput').value;
+    const gender = document.getElementById('genderSelect').value;
+    const catId = document.getElementById('categorySelect').value;
+    const brandId = document.getElementById('brandSelect').value;
+    const color = document.getElementById('colorSelect').value;
+    const maxPrice = document.getElementById('priceRange').value;
+    const sortBy = document.getElementById('sortBy').value;
+
+    let url = `/api/v1/products/?page=${page}&limit=12&sort_by=${sortBy}`;
+    if (search) url += `&search=${encodeURIComponent(search)}`;
+    if (gender && gender !== 'all') url += `&gender=${gender}`;
+    if (catId) url += `&category_id=${catId}`;
+    if (brandId) url += `&brand_id=${brandId}`;
+    if (color) url += `&color=${encodeURIComponent(color)}`;
+    if (activeSize) url += `&size=${activeSize}`;
+    if (maxPrice < 300) url += `&max_price=${maxPrice}`;
+
+    try {
+        const res = await fetch(url);
+        const data = await res.json();
+        loading.classList.add('d-none');
+
+        if (data.products.length === 0) {
+            grid.innerHTML = `
+                <div class="col-12 text-center py-5">
+                    <i class="bi bi-search fs-1 text-secondary"></i>
+                    <h5 class="mt-3 text-white">No products found</h5>
+                    <p class="text-secondary small">Try adjusting your filters or search keywords.</p>
+                </div>
+            `;
+            document.getElementById('paginationNav').classList.add('d-none');
+            return;
+        }
+
+        data.products.forEach(prod => {
+            const card = document.createElement('div');
+            card.className = 'col-sm-6 col-md-4';
+            card.innerHTML = `
+                <div class="product-card">
+                    <div class="product-card-img-wrapper">
+                        <img src="${prod.image_url}" alt="${prod.name}" class="product-card-img">
+                        <span class="product-badge">${prod.gender}</span>
+                    </div>
+                    <div class="product-card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="text-secondary fs-7 text-uppercase font-weight-bold">${prod.category ? prod.category.name : 'Apparel'}</span>
+                            <span class="product-price">$${prod.price.toFixed(2)}</span>
+                        </div>
+                        <h5 class="product-title">${prod.name}</h5>
+                        <p class="text-secondary fs-7 line-clamp-2 mb-3">${prod.description || ''}</p>
+                        <div class="mt-auto">
+                            <a href="/products/${prod.slug}" class="btn btn-gradient w-100 btn-sm py-2">
+                                View Details & Sizes <i class="bi bi-chevron-right ms-1"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            `;
+            grid.appendChild(card);
+        });
+
+        renderPagination(data.page, data.total_pages);
+    } catch (err) {
+        loading.classList.add('d-none');
+        grid.innerHTML = `<div class="alert alert-danger">Error loading products: ${err.message}</div>`;
+    }
+}
+
+function renderPagination(current, total) {
+    const nav = document.getElementById('paginationNav');
+    const ul = document.getElementById('paginationList');
+    ul.innerHTML = '';
+    if (total <= 1) {
+        nav.classList.add('d-none');
+        return;
+    }
+    nav.classList.remove('d-none');
+
+    for (let i = 1; i <= total; i++) {
+        const li = document.createElement('li');
+        li.className = `page-item ${i === current ? 'active' : ''}`;
+        li.innerHTML = `<a class="page-link bg-dark text-white border-secondary" href="#" onclick="fetchProducts(${i}); return false;">${i}</a>`;
+        ul.appendChild(li);
+    }
+}
+
+function resetFilters() {
+    document.getElementById('searchInput').value = '';
+    document.getElementById('genderSelect').value = 'all';
+    document.getElementById('categorySelect').value = '';
+    document.getElementById('brandSelect').value = '';
+    document.getElementById('colorSelect').value = '';
+    document.getElementById('priceRange').value = 300;
+    document.getElementById('priceValue').innerText = '$300';
+    activeSize = '';
+    const sizeContainer = document.getElementById('sizeFilterButtons');
+    if (sizeContainer) {
+        Array.from(sizeContainer.children).forEach(b => {
+            b.classList.remove('btn-pink', 'text-white');
+            b.classList.add('btn-outline-secondary');
+        });
+    }
+    fetchProducts(1);
+}
+</script>
+{% endblock %}
