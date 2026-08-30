@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+
+{% block title %}Sign In / Register | Aura Store{% endblock %}
+
+{% block content %}
+<div class="container px-lg-5 py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="card bg-card border-secondary rounded-4 p-4 shadow-lg">
+                <!-- Nav Tabs -->
+                <ul class="nav nav-pills nav-justified mb-4" id="authTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active font-weight-bold" id="login-tab" data-bs-toggle="pill" data-bs-target="#loginPane" type="button" role="tab">Sign In</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link font-weight-bold" id="register-tab" data-bs-toggle="pill" data-bs-target="#registerPane" type="button" role="tab">Register Account</button>
+                    </li>
+                </ul>
+
+                <div class="tab-content" id="authTabsContent">
+                    <!-- Login Tab -->
+                    <div class="tab-pane fade show active" id="loginPane" role="tabpanel">
+                        <form id="loginForm" onsubmit="handleLogin(event)">
+                            <div class="mb-3">
+                                <label class="form-label text-secondary small">Email Address</label>
+                                <input type="email" id="loginEmail" class="form-control bg-dark text-white border-secondary" placeholder="demo@fashion.com" required value="demo@fashion.com">
+                            </div>
+                            <div class="mb-4">
+                                <label class="form-label text-secondary small">Password</label>
+                                <input type="password" id="loginPassword" class="form-control bg-dark text-white border-secondary" placeholder="••••••••" required value="password123">
+                            </div>
+                            <button type="submit" class="btn btn-gradient w-100 py-3 font-weight-bold mb-3">
+                                <i class="bi bi-box-arrow-in-right me-2"></i> Sign In
+                            </button>
+                            <p class="text-secondary small text-center mb-0">Demo Account Credentials pre-filled for easy testing!</p>
+                        </form>
+                    </div>
+
+                    <!-- Register Tab -->
+                    <div class="tab-pane fade" id="registerPane" role="tabpanel">
+                        <form id="registerForm" onsubmit="handleRegister(event)">
+                            <div class="mb-3">
+                                <label class="form-label text-secondary small">Full Name</label>
+                                <input type="text" id="regName" class="form-control bg-dark text-white border-secondary" placeholder="Alex Morgan" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label text-secondary small">Email Address</label>
+                                <input type="email" id="regEmail" class="form-control bg-dark text-white border-secondary" placeholder="alex@example.com" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label text-secondary small">Password</label>
+                                <input type="password" id="regPassword" class="form-control bg-dark text-white border-secondary" placeholder="Min. 6 characters" minlength="6" required>
+                            </div>
+                            <div class="row g-2 mb-3">
+                                <div class="col-6">
+                                    <label class="form-label text-secondary small">Height (cm)</label>
+                                    <input type="number" id="regHeight" class="form-control bg-dark text-white border-secondary" placeholder="175" value="175">
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label text-secondary small">Weight (kg)</label>
+                                    <input type="number" id="regWeight" class="form-control bg-dark text-white border-secondary" placeholder="68" value="68">
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-gradient w-100 py-3 font-weight-bold">
+                                <i class="bi bi-person-plus me-2"></i> Create Account
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+async function handleLogin(e) {
+    e.preventDefault();
+    const email = document.getElementById('loginEmail').value;
+    const password = document.getElementById('loginPassword').value;
+
+    try {
+        const res = await fetch('/api/v1/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+        });
+
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || 'Login failed');
+        }
+
+        const data = await res.json();
+        setAuthToken(data.access_token);
+        setStoredUser(data.user);
+        updateNavAuth();
+        await updateCartCount();
+        window.location.href = '/products';
+    } catch (err) {
+        alert('Authentication Error: ' + err.message);
+    }
+}
+
+async function handleRegister(e) {
+    e.preventDefault();
+    const payload = {
+        full_name: document.getElementById('regName').value,
+        email: document.getElementById('regEmail').value,
+        password: document.getElementById('regPassword').value,
+        height_cm: parseFloat(document.getElementById('regHeight').value) || 175,
+        weight_kg: parseFloat(document.getElementById('regWeight').value) || 68
+    };
+
+    try {
+        const res = await fetch('/api/v1/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || 'Registration failed');
+        }
+
+        const data = await res.json();
+        setAuthToken(data.access_token);
+        setStoredUser(data.user);
+        updateNavAuth();
+        await updateCartCount();
+        alert('Account created successfully!');
+        window.location.href = '/products';
+    } catch (err) {
+        alert('Registration Error: ' + err.message);
+    }
+}
+</script>
+{% endblock %}
