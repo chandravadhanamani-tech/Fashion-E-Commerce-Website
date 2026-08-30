@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}Aura Fashion Store | AI Size Recommendations & Premium Apparel{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-lg-5 py-4">
+    <!-- Hero Banner -->
+    <div class="hero-banner mb-5 text-white">
+        <div class="row align-items-center">
+            <div class="col-lg-7 z-1">
+                <span class="badge bg-pink text-white px-3 py-2 rounded-pill mb-3 font-weight-bold tracking-wide">NEW ARRIVALS 2026</span>
+                <h1 class="display-4 font-weight-bold mb-3">Redefining Fashion Fit With AI Precision.</h1>
+                <p class="lead text-light opacity-90 mb-4 me-lg-5">Explore luxury apparel tailored to your body profile. Enjoy instant algorithmic size recommendations, multi-color variants, and seamless ordering.</p>
+                <div class="d-flex flex-wrap gap-3">
+                    <a href="/products" class="btn btn-gradient btn-lg px-4 fs-6">
+                        <i class="bi bi-bag-fill me-2"></i> Shop Entire Collection
+                    </a>
+                    <button type="button" class="btn btn-outline-custom btn-lg px-4 fs-6 text-white" data-bs-toggle="modal" data-bs-target="#sizeRecModal">
+                        <i class="bi bi-magic me-2 text-pink"></i> Try Size Recommender
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Category Highlights -->
+    <div class="mb-5">
+        <div class="d-flex align-items-center justify-content-between mb-4">
+            <div>
+                <h3 class="brand-font mb-1">Browse Categories</h3>
+                <p class="text-secondary small mb-0">Curated collections designed for modern aesthetics</p>
+            </div>
+            <a href="/products" class="text-pink text-decoration-none font-weight-bold small">View All <i class="bi bi-arrow-right ms-1"></i></a>
+        </div>
+
+        <div class="row g-3">
+            {% for cat in categories %}
+            <div class="col-md-4 col-lg">
+                <a href="/products?category_slug={{ cat.slug }}" class="card bg-card border-secondary text-white text-decoration-none h-100 p-3 rounded-4 transition-all hover-glow">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <h6 class="font-weight-bold mb-1">{{ cat.name }}</h6>
+                            <span class="text-secondary fs-7">Explore items</span>
+                        </div>
+                        <div class="rounded-circle bg-dark p-3 text-pink border border-secondary">
+                            <i class="bi bi-tag fs-5"></i>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Featured Products Grid -->
+    <div class="mb-5">
+        <div class="d-flex align-items-center justify-content-between mb-4">
+            <div>
+                <h3 class="brand-font mb-1">Featured Apparel</h3>
+                <p class="text-secondary small mb-0">Handpicked trending products with size/color options</p>
+            </div>
+            <a href="/products" class="btn btn-outline-custom btn-sm">Explore Shop</a>
+        </div>
+
+        <div class="row g-4">
+            {% for prod in featured_products %}
+            <div class="col-sm-6 col-md-4 col-lg-3">
+                <div class="product-card">
+                    <div class="product-card-img-wrapper">
+                        <img src="{{ prod.image_url }}" alt="{{ prod.name }}" class="product-card-img">
+                        <span class="product-badge">{{ prod.gender | capitalize }}</span>
+                    </div>
+                    <div class="product-card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="text-secondary fs-7 text-uppercase font-weight-bold">{{ prod.category.name if prod.category else 'Apparel' }}</span>
+                            <span class="product-price">${{ "%.2f"|format(prod.price) }}</span>
+                        </div>
+                        <h5 class="product-title">{{ prod.name }}</h5>
+                        <p class="text-secondary fs-7 line-clamp-2 mb-3">{{ prod.description }}</p>
+                        <div class="mt-auto d-flex gap-2">
+                            <a href="/products/{{ prod.slug }}" class="btn btn-gradient w-100 btn-sm py-2">
+                                Select Size & Color <i class="bi bi-chevron-right ms-1"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Size Recommendation Spotlight Card -->
+    <div class="size-recommender-box my-5 text-white">
+        <div class="row align-items-center py-3">
+            <div class="col-lg-8">
+                <div class="d-flex align-items-center gap-2 text-pink mb-2 font-weight-bold">
+                    <i class="bi bi-cpu-fill fs-4"></i> AI FIT ALGORITHM
+                </div>
+                <h2 class="brand-font mb-2">Never Guess Your Size Again</h2>
+                <p class="text-light opacity-90 mb-0">Enter your height, weight, and fit preferences. Our mathematical sizing engine evaluates chest, waist, and category specs to recommend the size guaranteed to look best on you.</p>
+            </div>
+            <div class="col-lg-4 text-lg-end mt-4 mt-lg-0">
+                <button type="button" class="btn btn-gradient btn-lg px-4" data-bs-toggle="modal" data-bs-target="#sizeRecModal">
+                    <i class="bi bi-magic me-2"></i> Launch Size Finder
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
