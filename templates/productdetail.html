@@ -1,0 +1,320 @@
+{% extends "base.html" %}
+
+{% block title %}{{ product.name if product else 'Product Detail' }} | Aura Store{% endblock %}
+
+{% block content %}
+<div class="container px-lg-5 py-4">
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/" class="text-pink text-decoration-none">Home</a></li>
+            <li class="breadcrumb-item"><a href="/products" class="text-pink text-decoration-none">Shop</a></li>
+            <li class="breadcrumb-item active text-secondary" aria-current="page">{{ product.name if product else 'Detail' }}</li>
+        </ol>
+    </nav>
+
+    <div class="row g-5">
+        <!-- Product Image -->
+        <div class="col-lg-6">
+            <div class="card bg-card border-secondary rounded-4 overflow-hidden p-2">
+                <img id="mainProductImg" src="{{ product.image_url }}" alt="{{ product.name }}" class="img-fluid rounded-4 w-100 object-fit-cover" style="max-height: 550px;">
+            </div>
+        </div>
+
+        <!-- Product Specs & Variants -->
+        <div class="col-lg-6">
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <span class="badge bg-dark border border-secondary text-pink px-3 py-2 text-uppercase">{{ product.brand.name if product.brand else 'Aura' }}</span>
+                <span class="badge bg-secondary px-3 py-2 text-uppercase">{{ product.gender }}</span>
+            </div>
+
+            <h1 class="brand-font mb-2 text-white">{{ product.name }}</h1>
+
+            <div class="d-flex align-items-center gap-3 mb-3">
+                <span class="display-6 font-weight-bold text-pink" id="displayPrice">${{ "%.2f"|format(product.price) }}</span>
+                <span class="badge bg-success bg-opacity-20 text-success border border-success px-3 py-2">In Stock</span>
+            </div>
+
+            <p class="text-secondary mb-4 leading-relaxed">{{ product.description }}</p>
+
+            <!-- Embedded AI Size Recommendation Card -->
+            <div class="size-recommender-box mb-4">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="font-weight-bold text-white d-flex align-items-center gap-2">
+                        <i class="bi bi-magic text-pink fs-5"></i> Personal Size Fit Advisor
+                    </span>
+                    <button type="button" class="btn btn-sm btn-outline-custom text-white" data-bs-toggle="modal" data-bs-target="#sizeRecModal">
+                        Adjust Body Profile
+                    </button>
+                </div>
+                <div id="detailSizeRecommendationOutput">
+                    <p class="text-secondary small mb-0">Click below to calculate your guaranteed fit for this garment.</p>
+                    <button class="btn btn-sm btn-gradient mt-2" onclick="calculateGarmentFit()">
+                        <i class="bi bi-lightning-charge me-1"></i> Check My Recommended Size
+                    </button>
+                </div>
+            </div>
+
+            <!-- Variant Selectors -->
+            <form id="addToCartForm" onsubmit="handleAddToCart(event)">
+                <!-- Color Selector -->
+                <div class="mb-4">
+                    <label class="form-label font-weight-bold text-white small me-2">Available Color:</label>
+                    <div id="colorContainer" class="d-flex flex-wrap gap-2">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Size Selector -->
+                <div class="mb-4">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <label class="form-label font-weight-bold text-white small mb-0">Select Size:</label>
+                        <span id="stockIndicator" class="text-secondary fs-7">Select size to view stock</span>
+                    </div>
+                    <div id="sizeContainer" class="d-flex flex-wrap gap-2 size-selector">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Quantity & Actions -->
+                <div class="row g-3 align-items-center mb-4">
+                    <div class="col-4 col-sm-3">
+                        <label class="form-label font-weight-bold text-white small">Quantity</label>
+                        <div class="input-group input-group-sm">
+                            <button class="btn btn-outline-secondary" type="button" onclick="adjustQty(-1)">-</button>
+                            <input type="number" id="cartQuantity" class="form-control bg-dark text-white text-center border-secondary" value="1" min="1" readonly>
+                            <button class="btn btn-outline-secondary" type="button" onclick="adjustQty(1)">+</button>
+                        </div>
+                    </div>
+                    <div class="col-8 col-sm-9 d-flex gap-2">
+                        <button type="submit" id="addToCartBtn" class="btn btn-gradient btn-lg flex-grow-1" disabled>
+                            <i class="bi bi-bag-plus me-2"></i> Add To Cart
+                        </button>
+                        <button type="button" class="btn btn-outline-custom btn-lg text-white" onclick="toggleWishlist()">
+                            <i class="bi bi-heart" id="wishlistHeart"></i>
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+let productData = null;
+let selectedVariantId = null;
+
+document.addEventListener('DOMContentLoaded', async () => {
+    await fetchProductDetails();
+});
+
+async function fetchProductDetails() {
+    const slug = "{{ product.slug }}";
+    try {
+        const res = await fetch(`/api/v1/products/slug/${slug}`);
+        if (!res.ok) throw new Error('Product not found');
+        productData = await res.json();
+        renderVariants();
+    } catch (err) {
+        console.error('Error fetching product detail:', err);
+    }
+}
+
+function renderVariants() {
+    if (!productData || !productData.variants) return;
+
+    // Extract unique colors
+    const colors = [...new Set(productData.variants.map(v => v.color))];
+    const colorContainer = document.getElementById('colorContainer');
+    colorContainer.innerHTML = '';
+
+    colors.forEach((col, idx) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `btn btn-sm ${idx === 0 ? 'btn-pink text-white' : 'btn-outline-secondary'}`;
+        btn.innerText = col;
+        btn.onclick = () => selectColor(col, btn);
+        colorContainer.appendChild(btn);
+    });
+
+    if (colors.length > 0) {
+        renderSizesForColor(colors[0]);
+    }
+}
+
+function selectColor(color, btnElem) {
+    const colorContainer = document.getElementById('colorContainer');
+    Array.from(colorContainer.children).forEach(b => {
+        b.classList.remove('btn-pink', 'text-white');
+        b.classList.add('btn-outline-secondary');
+    });
+    btnElem.classList.remove('btn-outline-secondary');
+    btnElem.classList.add('btn-pink', 'text-white');
+
+    renderSizesForColor(color);
+}
+
+function renderSizesForColor(color) {
+    const sizeContainer = document.getElementById('sizeContainer');
+    sizeContainer.innerHTML = '';
+    selectedVariantId = null;
+    document.getElementById('addToCartBtn').disabled = true;
+    document.getElementById('stockIndicator').innerText = 'Select size to view stock';
+
+    const matchingVariants = productData.variants.filter(v => v.color === color);
+
+    matchingVariants.forEach(v => {
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = `
+            <input type="radio" class="btn-check" name="variantRadio" id="v_${v.id}" value="${v.id}" autocomplete="off" onchange="selectVariant(${v.id}, ${v.stock_quantity}, ${v.additional_price})">
+            <label class="btn btn-outline-size" for="v_${v.id}">${v.size}</label>
+        `;
+        sizeContainer.appendChild(wrapper);
+    });
+}
+
+function selectVariant(variantId, stock, addPrice) {
+    selectedVariantId = variantId;
+    const basePrice = productData.price;
+    const totalPrice = basePrice + addPrice;
+    document.getElementById('displayPrice').innerText = `$${totalPrice.toFixed(2)}`;
+
+    const stockInd = document.getElementById('stockIndicator');
+    if (stock > 0) {
+        stockInd.className = 'text-success fs-7 font-weight-bold';
+        stockInd.innerText = `In Stock (${stock} left)`;
+        document.getElementById('addToCartBtn').disabled = false;
+    } else {
+        stockInd.className = 'text-danger fs-7 font-weight-bold';
+        stockInd.innerText = 'Out of Stock';
+        document.getElementById('addToCartBtn').disabled = true;
+    }
+}
+
+function adjustQty(delta) {
+    const input = document.getElementById('cartQuantity');
+    let val = parseInt(input.value) + delta;
+    if (val < 1) val = 1;
+    input.value = val;
+}
+
+async function calculateGarmentFit() {
+    const output = document.getElementById('detailSizeRecommendationOutput');
+    output.innerHTML = '<div class="spinner-border spinner-border-sm text-pink" role="status"></div> Calculating fit...';
+
+    const token = getAuthToken();
+    if (token) {
+        try {
+            const res = await fetch(`/api/v1/recommendations/my-size/${productData.id}`, {
+                headers: authHeaders()
+            });
+            if (res.ok) {
+                const data = await res.json();
+                renderRecommendationResult(data);
+                return;
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    // Default calculations if not logged in or missing measurements
+    const res = await fetch('/api/v1/recommendations/size', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            gender: productData.gender || 'unisex',
+            height_cm: 175,
+            weight_kg: 68,
+            category_name: productData.category ? productData.category.name : 'Tops'
+        })
+    });
+
+    if (res.ok) {
+        const data = await res.json();
+        renderRecommendationResult(data);
+    }
+}
+
+function renderRecommendationResult(data) {
+    const output = document.getElementById('detailSizeRecommendationOutput');
+    output.innerHTML = `
+        <div class="alert alert-dark border-pink mb-0 p-2 text-white">
+            <div class="d-flex align-items-center justify-content-between">
+                <span class="badge bg-pink fs-6 px-3 py-2">Size ${data.recommended_size} Recommended</span>
+                <span class="text-pink font-weight-bold small">${data.confidence_percentage}% Fit Match</span>
+            </div>
+            <p class="text-secondary small mb-0 mt-2">${data.fit_summary}</p>
+        </div>
+    `;
+
+    // Highlight size radio if matching
+    const radios = document.getElementsByName('variantRadio');
+    for (let r of radios) {
+        const lbl = document.querySelector(`label[for="${r.id}"]`);
+        if (lbl && lbl.innerText.trim() === data.recommended_size) {
+            lbl.click();
+            break;
+        }
+    }
+}
+
+async function handleAddToCart(e) {
+    e.preventDefault();
+    if (!getAuthToken()) {
+        alert('Please sign in to add items to your shopping cart.');
+        window.location.href = '/auth';
+        return;
+    }
+
+    if (!selectedVariantId) {
+        alert('Please select a size variant.');
+        return;
+    }
+
+    const qty = parseInt(document.getElementById('cartQuantity').value);
+
+    try {
+        const res = await fetch('/api/v1/cart/items', {
+            method: 'POST',
+            headers: authHeaders(),
+            body: JSON.stringify({ variant_id: selectedVariantId, quantity: qty })
+        });
+
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || 'Failed to add item to cart');
+        }
+
+        await updateCartCount();
+        alert('Item successfully added to your cart!');
+    } catch (err) {
+        alert('Cart Error: ' + err.message);
+    }
+}
+
+async function toggleWishlist() {
+    if (!getAuthToken()) {
+        alert('Please sign in to manage your wishlist.');
+        window.location.href = '/auth';
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/v1/wishlist/', {
+            method: 'POST',
+            headers: authHeaders(),
+            body: JSON.stringify({ product_id: productData.id })
+        });
+        if (res.ok) {
+            document.getElementById('wishlistHeart').className = 'bi bi-heart-fill text-pink';
+            alert('Added to your wishlist!');
+        }
+    } catch (err) {
+        console.error(err);
+    }
+}
+</script>
+{% endblock %}
+
